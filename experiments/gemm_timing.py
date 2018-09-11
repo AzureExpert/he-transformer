@@ -19,13 +19,27 @@ import numpy as np
 import tensorflow as tf
 import time
 import sys
+import argparse
 
 
-def gemm_trial(n, n_zeros=0, n_ones=0, fp=sys.stdout):
-    a = tf.constant(np.float32(np.random.randint(low=-5, high=5, size=(n,n))), dtype=np.float32)
+def gemm_trial(n, p_zeros=0., p_ones=0, fp=sys.stdout):
+    ra = np.float32(np.random.randint(low=-5, high=5, size=(n,n)))
+    rb = np.float32(np.random.randint(low=-5, high=5, size=(n,n)))    
+
+    # randomly set entries to 0
+    n_zeros = int(p_zeros * n * n)
+    n_ones = int(p_ones * n * n)
+    zero_indices = np.random.choice( n * n, n_zeros, replace=False)
+    for i in zero_indices:
+        row = i // n
+        col = i % n
+        ra[row, col] = 0.
+
+    a = tf.constant(ra, dtype=np.float32)
     b = tf.placeholder(tf.float32, shape=(n, n))
-    rb = np.float32(np.random.randint(low=-5, high=5, size=(n,n)))
     c = tf.placeholder(tf.float32, shape=())
+
+
     f = tf.matmul(a, b) * c
 
     with tf.Session() as sess:
@@ -34,13 +48,20 @@ def gemm_trial(n, n_zeros=0, n_ones=0, fp=sys.stdout):
         t1 = time.time()-t0
         print("Result: ", f_val)
         print("Time: ", t1)
-        fp.write('%d, %d, %d, %f\n' % (n, n_zeros, n_ones, t1))
+        fp.write('%d, %f, %f, %f\n' % (n, p_zeros, p_ones, t1))
 
 if __name__ == "__main__":
-    fname = './results.txt'
+
+    parser = argparse.ArgumentParser(description='Rum GEMM timing experiments for he-transformer.')
+    parser.add_argument('--out', help='Name of output CSV file', default='./results.txt')
+    args = parser.parse_args()
+    
+    fname = args.out
     fp = open(fname, 'w')
     gemm_trial(5, fp=fp)
     gemm_trial(10, fp=fp)
+    gemm_trial(10, p_zeros=0.5, fp=fp)
+    gemm_trial(10, p_zeros=1.0, fp=fp)
     fp.close()
 
     
