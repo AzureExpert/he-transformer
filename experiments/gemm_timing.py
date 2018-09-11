@@ -19,24 +19,21 @@ import numpy as np
 import tensorflow as tf
 import time
 
-# next step, add zeros and 1's to matrix at random
 
-n = 20
-a = tf.constant(np.float32(np.random.randint(low=-5, high=5, size=(n,n))), dtype=np.float32)
-b = tf.placeholder(tf.float32, shape=(n, n))
-rb = np.float32(np.random.randint(low=-5, high=5, size=(n,n)))
-c = tf.placeholder(tf.float32, shape=())
-d = tf.placeholder(tf.float32, shape=(n, n))
-rd = np.float32(np.random.randint(low=-5, high=5, size=(n,n)))
+def gemm_trial(n, n_zeros=0, n_ones=0, fp=None):
+    a = tf.constant(np.float32(np.random.randint(low=-5, high=5, size=(n,n))), dtype=np.float32)
+    b = tf.placeholder(tf.float32, shape=(n, n))
+    rb = np.float32(np.random.randint(low=-5, high=5, size=(n,n)))
+    c = tf.placeholder(tf.float32, shape=())
+    f = tf.matmul(a, b) * c
 
-f = tf.matmul(a, b)*c + d
+    with tf.Session() as sess:
+        t0 = time.time()
+        f_val = sess.run(f, feed_dict={b: rb, c: 3.})
+        t1 = time.time()-t0
+        print("Result: ", f_val)
+        print("Time in sec: ", t1)
 
-with tf.Session() as sess:
-    print("start")
-    t0 = time.time()
-    f_val = sess.run(f, feed_dict={b: rb, c: 3., d: rd})
-    t1 = time.time()-t0
-    print("Result: ", f_val)
-    print("time = ", t1)
-
-
+if __name__ == "__main__":
+    gemm_trial(20)
+    
