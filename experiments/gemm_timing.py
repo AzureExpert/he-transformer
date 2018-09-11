@@ -18,9 +18,10 @@ import ngraph
 import numpy as np
 import tensorflow as tf
 import time
+import sys
 
 
-def gemm_trial(n, n_zeros=0, n_ones=0, fp=None):
+def gemm_trial(n, n_zeros=0, n_ones=0, fp=sys.stdout):
     a = tf.constant(np.float32(np.random.randint(low=-5, high=5, size=(n,n))), dtype=np.float32)
     b = tf.placeholder(tf.float32, shape=(n, n))
     rb = np.float32(np.random.randint(low=-5, high=5, size=(n,n)))
@@ -32,8 +33,15 @@ def gemm_trial(n, n_zeros=0, n_ones=0, fp=None):
         f_val = sess.run(f, feed_dict={b: rb, c: 3.})
         t1 = time.time()-t0
         print("Result: ", f_val)
-        print("Time in sec: ", t1)
+        print("Time: ", t1)
+        fp.write('%d, %d, %d, %f\n' % (n, n_zeros, n_ones, t1))
 
 if __name__ == "__main__":
-    gemm_trial(20)
+    fname = './results.txt'
+    fp = open(fname, 'w')
+    gemm_trial(5, fp=fp)
+    gemm_trial(10, fp=fp)
+    fp.close()
+
+    
     
