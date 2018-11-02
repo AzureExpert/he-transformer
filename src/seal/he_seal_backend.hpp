@@ -58,22 +58,22 @@ namespace ngraph
 
                     virtual std::shared_ptr<runtime::Tensor>
                         create_batched_tensor(const element::Type& element_type,
-                                              const Shape& shape) = 0;
+                                              const Shape& shape) override = 0;
 
                     std::shared_ptr<runtime::he::HECiphertext>
                         create_empty_ciphertext() const override;
 
-                    std::shared_ptr<runtime::he::HEPlaintext> create_empty_plaintext() const;
+                    std::shared_ptr<runtime::he::HEPlaintext> create_empty_plaintext() const override;
 
                     virtual void encode(std::shared_ptr<runtime::he::HEPlaintext>& output,
                                         const void* input,
                                         const element::Type& element_type,
-                                        size_t count = 1) const = 0;
+                                        size_t count = 1) const override = 0;
 
                     virtual void decode(void* output,
                                         const std::shared_ptr<runtime::he::HEPlaintext> input,
                                         const element::Type& element_type,
-                                        size_t count = 1) const = 0;
+                                        size_t count = 1) const override = 0;
 
                     void encrypt(
                         std::shared_ptr<runtime::he::HECiphertext>& output,
