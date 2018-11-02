@@ -77,6 +77,9 @@ include_directories(SYSTEM
     ${EXTERNAL_INSTALL_INCLUDE_DIR}
 )
 
+message("Linking ${NGRAPH_LIB_DIR}")
+message("Linking ${EXTERNAL_INSTALL_LIB_DIR}")
+
 link_directories(
     ${NGRAPH_LIB_DIR}
     ${EXTERNAL_INSTALL_LIB_DIR}

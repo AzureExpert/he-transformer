@@ -59,7 +59,7 @@ set(NGRAPH_INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 set(NGRAPH_INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
 
 # This allows libhe_backend.so to find libraries in the same directory
-set(CMAKE_INSTALL_RPATH "\$ORIGIN")
+set(CMAKE_INSTALL_RPATH "$ORIGIN")
 
 option(ENABLE_TF "Support Tensorflow integration through ngraph-tf" OFF)
 

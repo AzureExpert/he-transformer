@@ -87,7 +87,7 @@ static void run_cryptonets_benchmark(string backend_name, size_t batch_size, boo
         else
         {
             NGRAPH_INFO << "Invalid shape" << join(shape, "x");
-            throw ngraph_error("Invalid shape " + shape_size(shape));
+            throw ngraph_error("Invalid shape " + to_string(shape_size(shape)));
         }
     }
 
