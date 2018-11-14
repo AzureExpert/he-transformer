@@ -3,7 +3,7 @@
 [----------] Global test environment set-up.
 [----------] 14 tests from Cryptonets
 [ RUN      ] Cryptonets.CKKS_unbatched
-[INFO] 2018-11-13T15:29:56z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:29:56z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -70,7 +70,7 @@
 [INFO] 2018-11-13T15:30:25z test/test_cryptonets.cpp 170	sw_global: 29406ms
 [       OK ] Cryptonets.CKKS_unbatched (30580 ms)
 [ RUN      ] Cryptonets.CKKS_1
-[INFO] 2018-11-13T15:30:26z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:30:26z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -139,7 +139,7 @@
 [INFO] 2018-11-13T15:30:51z test/test_cryptonets.cpp 170	sw_global: 24358ms
 [       OK ] Cryptonets.CKKS_1 (25502 ms)
 [ RUN      ] Cryptonets.CKKS_2
-[INFO] 2018-11-13T15:30:52z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:30:52z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -208,7 +208,7 @@
 [INFO] 2018-11-13T15:31:16z test/test_cryptonets.cpp 170	sw_global: 23997ms
 [       OK ] Cryptonets.CKKS_2 (25232 ms)
 [ RUN      ] Cryptonets.CKKS_4
-[INFO] 2018-11-13T15:31:17z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:31:17z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -277,7 +277,7 @@
 [INFO] 2018-11-13T15:31:40z test/test_cryptonets.cpp 170	sw_global: 23410ms
 [       OK ] Cryptonets.CKKS_4 (24625 ms)
 [ RUN      ] Cryptonets.CKKS_8
-[INFO] 2018-11-13T15:31:42z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:31:42z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -346,7 +346,7 @@
 [INFO] 2018-11-13T15:32:05z test/test_cryptonets.cpp 170	sw_global: 23492ms
 [       OK ] Cryptonets.CKKS_8 (24694 ms)
 [ RUN      ] Cryptonets.CKKS_16
-[INFO] 2018-11-13T15:32:06z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:32:06z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -415,7 +415,7 @@
 [INFO] 2018-11-13T15:32:30z test/test_cryptonets.cpp 170	sw_global: 23854ms
 [       OK ] Cryptonets.CKKS_16 (25046 ms)
 [ RUN      ] Cryptonets.CKKS_32
-[INFO] 2018-11-13T15:32:31z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:32:31z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -484,7 +484,7 @@
 [INFO] 2018-11-13T15:32:54z test/test_cryptonets.cpp 170	sw_global: 22837ms
 [       OK ] Cryptonets.CKKS_32 (24066 ms)
 [ RUN      ] Cryptonets.CKKS_64
-[INFO] 2018-11-13T15:32:55z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:32:55z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -553,7 +553,7 @@
 [INFO] 2018-11-13T15:33:18z test/test_cryptonets.cpp 170	sw_global: 23104ms
 [       OK ] Cryptonets.CKKS_64 (24314 ms)
 [ RUN      ] Cryptonets.CKKS_128
-[INFO] 2018-11-13T15:33:20z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:33:20z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -622,7 +622,7 @@
 [INFO] 2018-11-13T15:33:43z test/test_cryptonets.cpp 170	sw_global: 23273ms
 [       OK ] Cryptonets.CKKS_128 (24491 ms)
 [ RUN      ] Cryptonets.CKKS_256
-[INFO] 2018-11-13T15:33:44z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:33:44z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -691,7 +691,7 @@
 [INFO] 2018-11-13T15:34:07z test/test_cryptonets.cpp 170	sw_global: 23128ms
 [       OK ] Cryptonets.CKKS_256 (24336 ms)
 [ RUN      ] Cryptonets.CKKS_512
-[INFO] 2018-11-13T15:34:08z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:34:08z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -760,7 +760,7 @@
 [INFO] 2018-11-13T15:34:32z test/test_cryptonets.cpp 170	sw_global: 23604ms
 [       OK ] Cryptonets.CKKS_512 (24816 ms)
 [ RUN      ] Cryptonets.CKKS_1024
-[INFO] 2018-11-13T15:34:33z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:34:33z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -829,7 +829,7 @@
 [INFO] 2018-11-13T15:34:57z test/test_cryptonets.cpp 170	sw_global: 23383ms
 [       OK ] Cryptonets.CKKS_1024 (24586 ms)
 [ RUN      ] Cryptonets.CKKS_2048
-[INFO] 2018-11-13T15:34:58z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:34:58z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
@@ -898,7 +898,7 @@
 [INFO] 2018-11-13T15:35:21z test/test_cryptonets.cpp 170	sw_global: 22899ms
 [       OK ] Cryptonets.CKKS_2048 (24111 ms)
 [ RUN      ] Cryptonets.CKKS_4096
-[INFO] 2018-11-13T15:35:22z src/seal/he_seal_util.hpp 45	
+[INFO] 2018-11-13T15:35:22z src/seal/he_seal_util.hpp 45
 / Encryption parameters:
 | scheme: HE:SEAL:CKKS
 | poly_modulus: 8192
