@@ -18,6 +18,7 @@
 
 #include <string>
 
+#include "he_ciphertext.hpp"
 #include "he_tensor.hpp"
 #include "ngraph/runtime/tensor.hpp"
 #include "ngraph/type/element_type.hpp"
@@ -25,14 +26,9 @@
 namespace ngraph {
 namespace runtime {
 namespace he {
-class HEBackend;
-class HECiphertext;
-
 namespace he_seal {
-class HESealBackend;
-}
 
-class HECipherTensor : public HETensor {
+class HECipherTensor : public ngraph::runtime::he::HETensor {
  public:
   HECipherTensor(const element::Type& element_type, const Shape& shape,
                  const HEBackend* he_backend,
@@ -61,10 +57,10 @@ class HECipherTensor : public HETensor {
 
   void read(void* target, size_t tensor_offset, size_t n) const override;
 
-  inline std::vector<std::shared_ptr<runtime::he::HECiphertext>>&
-  get_elements() {
+  /*std::vector<std::shared_ptr<runtime::he::HECiphertext>>& get_elements()
+      override {
     return m_cipher_texts;
-  }
+  }; */
 
   inline std::shared_ptr<runtime::he::HECiphertext>& get_element(size_t i) {
     return m_cipher_texts[i];
@@ -77,6 +73,6 @@ class HECipherTensor : public HETensor {
   std::vector<std::shared_ptr<runtime::he::HECiphertext>> m_cipher_texts;
   size_t m_num_elements;
 };
+}  // namespace he_seal
 }  // namespace he
 }  // namespace runtime
-}  // namespace ngraph

@@ -157,8 +157,8 @@ bool runtime::he::HEBackend::compile(shared_ptr<Function> function) {
 
 void runtime::he::HEBackend::validate_he_call(
     shared_ptr<const Function> function,
-    const vector<shared_ptr<runtime::he::HETensor>>& outputs,
-    const vector<shared_ptr<runtime::he::HETensor>>& inputs) {
+    const vector<runtime::he::HETensor*>& outputs,
+    const vector<runtime::he::HETensor*>& inputs) {
   const op::ParameterVector& input_parameters = function->get_parameters();
   if (input_parameters.size() != inputs.size()) {
     stringstream ss;
@@ -184,8 +184,7 @@ void runtime::he::HEBackend::validate_he_call(
          << input_parameters[i]->get_element_type() << "'";
       throw runtime_error(ss.str());
     }
-    if (auto input_cipher_tv =
-            dynamic_pointer_cast<HECipherTensor>(inputs[i])) {
+    if (auto input_cipher_tv = dynamic_cast<HECipherTensor*>(inputs[i])) {
       if (input_cipher_tv->is_batched() &&
           input_cipher_tv->get_expanded_shape() !=
               input_parameters[i]->get_shape()) {
@@ -223,8 +222,7 @@ void runtime::he::HEBackend::validate_he_call(
          << function->get_output_element_type(i) << "'";
       throw runtime_error(ss.str());
     }
-    if (auto output_cipher_tv =
-            dynamic_pointer_cast<HECipherTensor>(outputs[i])) {
+    if (auto output_cipher_tv = dynamic_cast<HECipherTensor*>(outputs[i])) {
       // TODO: check if shapes are equal, not just shape sizes.
       // Currently, this fails when output shape is {3}, and
       // expanded shape is {3,1} on HE_SEAL_CKKS.dot_scalar_batch unit-test.
@@ -289,26 +287,22 @@ bool runtime::he::HEBackend::call(
   compile(function);
   FunctionInstance& instance = m_function_map[function];
 
-  // convert outputs to HETensor
-  vector<shared_ptr<runtime::he::HETensor>> he_inputs;
-  for (auto tv : inputs) {
-    he_inputs.push_back(static_pointer_cast<runtime::he::HETensor>(tv));
-  }
-
   // convert inputs to HETensor
-  vector<shared_ptr<runtime::he::HETensor>> he_outputs;
-  for (auto tv : outputs) {
-    he_outputs.push_back(static_pointer_cast<runtime::he::HETensor>(tv));
+  vector<runtime::he::HETensor*> he_outputs;
+  for (auto tensor : outputs) {
+    he_outputs.push_back(static_cast<runtime::he::HETensor*>(tensor.get()));
   }
 
-  // Needed for ngraph-tf integration for batched inputs
-  const char* ng_batch_tensor_value = std::getenv("NGRAPH_BATCHED_TENSOR");
+  // convert outputs to HETensor
+  vector<runtime::he::HETensor*> he_inputs;
+  for (auto tensor : inputs) {
+    he_inputs.push_back(static_cast<runtime::he::HETensor*>(tensor.get()));
+  }
 
   validate_he_call(function, he_outputs, he_inputs);
 
   // map function params -> HETensor
-  unordered_map<descriptor::Tensor*, shared_ptr<runtime::he::HETensor>>
-      tensor_map;
+  unordered_map<descriptor::Tensor*, runtime::he::HETensor*> tensor_map;
   size_t input_count = 0;
   for (auto param : function->get_parameters()) {
     for (size_t i = 0; i < param->get_output_size(); ++i) {
@@ -338,7 +332,7 @@ bool runtime::he::HEBackend::call(
     }
 
     // get op inputs from map
-    vector<shared_ptr<runtime::he::HETensor>> op_inputs;
+    vector<runtime::he::HETensor*> op_inputs;
     for (const descriptor::Input& input : op->get_inputs()) {
       descriptor::Tensor* tv = input.get_output().get_tensor_ptr().get();
       op_inputs.push_back(tensor_map.at(tv));
@@ -346,7 +340,7 @@ bool runtime::he::HEBackend::call(
 
     // get op outputs from map or create
     bool any_batched = false;
-    vector<shared_ptr<runtime::he::HETensor>> op_outputs;
+    vector<runtime::he::HETensor*> op_outputs;
     for (size_t i = 0; i < op->get_output_size(); ++i) {
       descriptor::Tensor* tv = op->get_output_tensor_ptr(i).get();
       auto it = tensor_map.find(tv);
@@ -364,7 +358,8 @@ bool runtime::he::HEBackend::call(
         if (plain_out) {
           auto otv = make_shared<runtime::he::HEPlainTensor>(
               element_type, shape, this, create_empty_plaintext(), name);
-          tensor_map.insert({tv, otv});
+          runtime::he::HEPlainTensor* he_tensor = otv.get();
+          tensor_map.insert({tv, he_tensor});
         } else {
           bool batched_out =
               any_of(op_inputs.begin(), op_inputs.end(),
@@ -381,7 +376,8 @@ bool runtime::he::HEBackend::call(
           auto otv = make_shared<runtime::he::HECipherTensor>(
               element_type, shape, this, create_empty_ciphertext(), batched_out,
               name);
-          tensor_map.insert({tv, otv});
+          runtime::he::HECipherTensor* he_tensor = otv.get();
+          tensor_map.insert({tv, he_tensor});
         }
       }
       op_outputs.push_back(tensor_map.at(tv));
@@ -416,19 +412,18 @@ bool runtime::he::HEBackend::call(
   return true;
 }
 
-void runtime::he::HEBackend::generate_calls(
-    const element::Type& element_type, const shared_ptr<Node>& node,
-    const vector<shared_ptr<HETensor>>& out,
-    const vector<shared_ptr<HETensor>>& args) {
+void runtime::he::HEBackend::generate_calls(const element::Type& element_type,
+                                            const shared_ptr<Node>& node,
+                                            const vector<HETensor*>& out,
+                                            const vector<HETensor*>& args) {
   string node_op = node->description();
   shared_ptr<HECipherTensor> arg0_cipher = nullptr;
   shared_ptr<HEPlainTensor> arg0_plain = nullptr;
   shared_ptr<HECipherTensor> arg1_cipher = nullptr;
   shared_ptr<HEPlainTensor> arg1_plain = nullptr;
-  shared_ptr<HECipherTensor> out0_cipher =
-      dynamic_pointer_cast<HECipherTensor>(out[0]);
-  shared_ptr<HEPlainTensor> out0_plain =
-      dynamic_pointer_cast<HEPlainTensor>(out[0]);
+  /* shared_ptr<HECipherTensor> out0_cipher =
+      dynamic_cast<HECipherTensor*>(out[0]);
+  shared_ptr<HEPlainTensor> out0_plain = dynamic_cast<HEPlainTensor*>(out[0]);
 
   if (args.size() > 0) {
     arg0_cipher = dynamic_pointer_cast<HECipherTensor>(args[0]);
@@ -437,353 +432,356 @@ void runtime::he::HEBackend::generate_calls(
   if (args.size() > 1) {
     arg1_cipher = dynamic_pointer_cast<HECipherTensor>(args[1]);
     arg1_plain = dynamic_pointer_cast<HEPlainTensor>(args[1]);
-  }
+  } */
 
-  size_t batch_size = 1;
+  /*size_t batch_size = 1;
   if (out0_cipher != nullptr) {
     batch_size = out0_cipher->get_batch_size();
-  }
+  } */
 
   if (node_op == "Add") {
-    if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
-        out0_cipher != nullptr) {
-      runtime::he::kernel::add(arg0_cipher->get_elements(),
-                               arg1_cipher->get_elements(),
-                               out0_cipher->get_elements(), element_type, this,
-                               out0_cipher->get_batched_element_count());
-    } else if (arg0_cipher != nullptr && arg1_plain != nullptr &&
-               out0_cipher != nullptr) {
-      runtime::he::kernel::add(arg0_cipher->get_elements(),
-                               arg1_plain->get_elements(),
-                               out0_cipher->get_elements(), element_type, this,
-                               out0_cipher->get_batched_element_count());
-    } else if (arg0_plain != nullptr && arg1_cipher != nullptr &&
-               out0_cipher != nullptr) {
-      runtime::he::kernel::add(arg0_plain->get_elements(),
-                               arg1_cipher->get_elements(),
-                               out0_cipher->get_elements(), element_type, this,
-                               out0_cipher->get_batched_element_count());
-    } else if (arg0_plain != nullptr && arg1_plain != nullptr &&
-               out0_plain != nullptr) {
-      runtime::he::kernel::add(arg0_plain->get_elements(),
-                               arg1_plain->get_elements(),
-                               out0_plain->get_elements(), element_type, this,
-                               out0_plain->get_batched_element_count());
-    } else {
-      throw ngraph_error("Add types not supported.");
-    }
-  } else if (node_op == "Broadcast") {
-    shared_ptr<op::Broadcast> broadcast =
-        dynamic_pointer_cast<op::Broadcast>(node);
-    AxisSet broadcast_axes = broadcast->get_broadcast_axes();
+    runtime::he::kernel::add(args[0]->get_elements(), args[1]->get_elements(),
+                             out[0]->get_elements(), element_type, this,
+                             out[0]->get_batched_element_count());
+  }
+  |
 
-    if (arg0_cipher != nullptr && out0_cipher != nullptr) {
-      Shape in_shape = arg0_cipher->get_shape();
-      Shape out_shape = out0_cipher->get_shape();
-      runtime::he::kernel::broadcast(arg0_cipher->get_elements(),
-                                     out0_cipher->get_elements(), in_shape,
-                                     out_shape, broadcast_axes);
-    } else if (arg0_plain != nullptr && out0_plain != nullptr) {
-      Shape in_shape = arg0_plain->get_shape();
-      Shape out_shape = out0_plain->get_shape();
-      runtime::he::kernel::broadcast(arg0_plain->get_elements(),
-                                     out0_plain->get_elements(), in_shape,
-                                     out_shape, broadcast_axes);
-    } else {
-      throw ngraph_error("Broadcast types not supported.");
-    }
-  } else if (node_op == "Constant") {
-    if (out0_plain != nullptr) {
-      shared_ptr<op::Constant> constant =
-          static_pointer_cast<op::Constant>(node);
-      runtime::he::kernel::constant(out0_plain->get_elements(), element_type,
-                                    constant->get_data_ptr(), this,
-                                    out0_plain->get_batched_element_count());
-    } else {
-      throw ngraph_error("Constant type not supported.");
-    }
-  } else if (node_op == "Convolution") {
-    shared_ptr<op::Convolution> c = dynamic_pointer_cast<op::Convolution>(node);
+      /* if (node_op == "Add") {
+        if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
+            out0_cipher != nullptr) {
+          runtime::he::kernel::add(args[0]->get_elements(),
+                                   arg1_cipher->get_elements(),
+                                   out0_cipher->get_elements(), element_type,
+      this, out0_cipher->get_batched_element_count()); } else if (arg0_cipher !=
+      nullptr && arg1_plain != nullptr && out0_cipher != nullptr) {
+          runtime::he::kernel::add(arg0_cipher->get_elements(),
+                                   arg1_plain->get_elements(),
+                                   out0_cipher->get_elements(), element_type,
+      this, out0_cipher->get_batched_element_count()); } else if (arg0_plain !=
+      nullptr && arg1_cipher != nullptr && out0_cipher != nullptr) {
+          runtime::he::kernel::add(arg0_plain->get_elements(),
+                                   arg1_cipher->get_elements(),
+                                   out0_cipher->get_elements(), element_type,
+      this, out0_cipher->get_batched_element_count()); } else if (arg0_plain !=
+      nullptr && arg1_plain != nullptr && out0_plain != nullptr) {
+          runtime::he::kernel::add(arg0_plain->get_elements(),
+                                   arg1_plain->get_elements(),
+                                   out0_plain->get_elements(), element_type,
+      this, out0_plain->get_batched_element_count()); } else { throw
+      ngraph_error("Add types not supported.");
+        }
+      } */
+      /* else if (node_op == "Broadcast") {
+        shared_ptr<op::Broadcast> broadcast =
+            dynamic_pointer_cast<op::Broadcast>(node);
+        AxisSet broadcast_axes = broadcast->get_broadcast_axes();
 
-    if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
-        out0_cipher != nullptr) {
-      runtime::he::kernel::convolution(
-          arg0_cipher->get_elements(), arg1_cipher->get_elements(),
-          out0_cipher->get_elements(), arg0_cipher->get_shape(),
-          arg1_cipher->get_shape(), out0_cipher->get_shape(),
-          c->get_window_movement_strides(), c->get_window_dilation_strides(),
-          c->get_padding_below(), c->get_padding_above(),
-          c->get_data_dilation_strides(), 0, 1, 1, 0, 0, 1, false, element_type,
-          batch_size, this);
-    } else if (arg0_cipher != nullptr && arg1_plain != nullptr &&
-               out0_cipher != nullptr) {
-      runtime::he::kernel::convolution(
-          arg0_cipher->get_elements(), arg1_plain->get_elements(),
-          out0_cipher->get_elements(), arg0_cipher->get_shape(),
-          arg1_plain->get_shape(), out0_cipher->get_shape(),
-          c->get_window_movement_strides(), c->get_window_dilation_strides(),
-          c->get_padding_below(), c->get_padding_above(),
-          c->get_data_dilation_strides(), 0, 1, 1, 0, 0, 1, false, element_type,
-          batch_size, this);
-    } else if (arg0_plain != nullptr && arg1_cipher != nullptr &&
-               out0_cipher != nullptr) {
-      runtime::he::kernel::convolution(
-          arg0_plain->get_elements(), arg1_cipher->get_elements(),
-          out0_cipher->get_elements(), arg0_plain->get_shape(),
-          arg1_cipher->get_shape(), out0_cipher->get_shape(),
-          c->get_window_movement_strides(), c->get_window_dilation_strides(),
-          c->get_padding_below(), c->get_padding_above(),
-          c->get_data_dilation_strides(), 0, 1, 1, 0, 0, 1, false, element_type,
-          batch_size, this);
-    } else if (arg0_plain != nullptr && arg1_plain != nullptr &&
-               out0_plain != nullptr) {
-      runtime::he::kernel::convolution(
-          arg0_plain->get_elements(), arg1_plain->get_elements(),
-          out0_plain->get_elements(), arg0_plain->get_shape(),
-          arg1_plain->get_shape(), out0_plain->get_shape(),
-          c->get_window_movement_strides(), c->get_window_dilation_strides(),
-          c->get_padding_below(), c->get_padding_above(),
-          c->get_data_dilation_strides(), 0, 1, 1, 0, 0, 1, false, element_type,
-          batch_size, this);
-    } else {
-      throw ngraph_error("Convolution types not supported.");
-    }
-  } else if (node_op == "Dot") {
-    shared_ptr<op::Dot> dot = dynamic_pointer_cast<op::Dot>(node);
-    NGRAPH_INFO << join(args[0]->get_shape(), "x") << " dot "
-                << join(args[1]->get_shape(), "x");
-    if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
-        out0_cipher != nullptr) {
-      NGRAPH_INFO << "Dot cipher cipher => cipher";
-      runtime::he::kernel::dot(
-          arg0_cipher->get_elements(), arg1_cipher->get_elements(),
-          out0_cipher->get_elements(), arg0_cipher->get_shape(),
-          arg1_cipher->get_shape(), out0_cipher->get_shape(),
-          dot->get_reduction_axes_count(), element_type, this);
-    } else if (arg0_cipher != nullptr && arg1_plain != nullptr &&
-               out0_cipher != nullptr) {
-      NGRAPH_INFO << "Dot cipher plain => cipher";
-      runtime::he::kernel::dot(
-          arg0_cipher->get_elements(), arg1_plain->get_elements(),
-          out0_cipher->get_elements(), arg0_cipher->get_shape(),
-          arg1_plain->get_shape(), out0_cipher->get_shape(),
-          dot->get_reduction_axes_count(), element_type, this);
-    } else if (arg0_plain != nullptr && arg1_cipher != nullptr &&
-               out0_cipher != nullptr) {
-      NGRAPH_INFO << "Dot plain cipher => cipher";
-      runtime::he::kernel::dot(
-          arg0_plain->get_elements(), arg1_cipher->get_elements(),
-          out0_cipher->get_elements(), arg0_plain->get_shape(),
-          arg1_cipher->get_shape(), out0_cipher->get_shape(),
-          dot->get_reduction_axes_count(), element_type, this);
-    } else if (arg0_plain != nullptr && arg1_plain != nullptr &&
-               out0_plain != nullptr) {
-      NGRAPH_INFO << "Dot plain plain => plain";
-      runtime::he::kernel::dot(
-          arg0_plain->get_elements(), arg1_plain->get_elements(),
-          out0_plain->get_elements(), arg0_plain->get_shape(),
-          arg1_plain->get_shape(), out0_plain->get_shape(),
-          dot->get_reduction_axes_count(), element_type, this);
-    } else {
-      throw ngraph_error("Dot types not supported.");
-    }
-  } else if (node_op == "Multiply") {
-    if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
-        out0_cipher != nullptr) {
-      runtime::he::kernel::multiply(
-          arg0_cipher->get_elements(), arg1_cipher->get_elements(),
-          out0_cipher->get_elements(), element_type, this,
-          out0_cipher->get_batched_element_count());
-    } else if (arg0_cipher != nullptr && arg1_plain != nullptr &&
-               out0_cipher != nullptr) {
-      runtime::he::kernel::multiply(
-          arg0_cipher->get_elements(), arg1_plain->get_elements(),
-          out0_cipher->get_elements(), element_type, this,
-          out0_cipher->get_batched_element_count());
-    } else if (arg0_plain != nullptr && arg1_cipher != nullptr &&
-               out0_cipher != nullptr) {
-      runtime::he::kernel::multiply(
-          arg0_plain->get_elements(), arg1_cipher->get_elements(),
-          out0_cipher->get_elements(), element_type, this,
-          out0_cipher->get_batched_element_count());
-    } else if (arg0_plain != nullptr && arg1_plain != nullptr &&
-               out0_plain != nullptr) {
-      runtime::he::kernel::multiply(
-          arg0_plain->get_elements(), arg1_plain->get_elements(),
-          out0_plain->get_elements(), element_type, this,
-          out0_plain->get_batched_element_count());
-    } else {
-      throw ngraph_error("Multiply types not supported.");
-    }
-  } else if (node_op == "Negative") {
-    if (arg0_cipher != nullptr && out0_cipher != nullptr) {
-      runtime::he::kernel::negate(
-          arg0_cipher->get_elements(), out0_cipher->get_elements(),
-          element_type, this, out0_cipher->get_batched_element_count());
-    } else if (arg0_plain != nullptr && out0_plain != nullptr) {
-      runtime::he::kernel::negate(
-          arg0_plain->get_elements(), out0_plain->get_elements(), element_type,
-          this, out0_plain->get_batched_element_count());
-    } else {
-      throw ngraph_error("Negative types not supported.");
-    }
-  } else if (node_op == "Pad") {
-    shared_ptr<op::Pad> pad = dynamic_pointer_cast<op::Pad>(node);
+        if (arg0_cipher != nullptr && out0_cipher != nullptr) {
+          Shape in_shape = arg0_cipher->get_shape();
+          Shape out_shape = out0_cipher->get_shape();
+          runtime::he::kernel::broadcast(arg0_cipher->get_elements(),
+                                         out0_cipher->get_elements(), in_shape,
+                                         out_shape, broadcast_axes);
+        } else if (arg0_plain != nullptr && out0_plain != nullptr) {
+          Shape in_shape = arg0_plain->get_shape();
+          Shape out_shape = out0_plain->get_shape();
+          runtime::he::kernel::broadcast(arg0_plain->get_elements(),
+                                         out0_plain->get_elements(), in_shape,
+                                         out_shape, broadcast_axes);
+        } else {
+          throw ngraph_error("Broadcast types not supported.");
+        }
+      } else if (node_op == "Constant") {
+        if (out0_plain != nullptr) {
+          shared_ptr<op::Constant> constant =
+              static_pointer_cast<op::Constant>(node);
+          runtime::he::kernel::constant(out0_plain->get_elements(),
+      element_type, constant->get_data_ptr(), this,
+                                        out0_plain->get_batched_element_count());
+        } else {
+          throw ngraph_error("Constant type not supported.");
+        }
+      } else if (node_op == "Convolution") {
+        shared_ptr<op::Convolution> c =
+      dynamic_pointer_cast<op::Convolution>(node);
 
-    // TODO: clean up
-    Shape arg0_shape = node->get_inputs().at(0).get_shape();
-    Shape out_shape = node->get_output_shape(0);
-    if (arg0_cipher != nullptr && out0_cipher != nullptr) {
-      NGRAPH_DEBUG << "arg0_cipher->is_batched(): "
-                   << arg0_cipher->is_batched();
-      NGRAPH_DEBUG << "arg0_cipher->get_batch_size(): "
-                   << arg0_cipher->get_batch_size();
-      if (arg0_cipher->is_batched()) {
-        arg0_shape[0] = arg0_shape[0] / arg0_cipher->get_batch_size();
-      }
+        if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
+            out0_cipher != nullptr) {
+          runtime::he::kernel::convolution(
+              arg0_cipher->get_elements(), arg1_cipher->get_elements(),
+              out0_cipher->get_elements(), arg0_cipher->get_shape(),
+              arg1_cipher->get_shape(), out0_cipher->get_shape(),
+              c->get_window_movement_strides(),
+      c->get_window_dilation_strides(), c->get_padding_below(),
+      c->get_padding_above(), c->get_data_dilation_strides(), 0, 1, 1, 0, 0, 1,
+      false, element_type, batch_size, this); } else if (arg0_cipher != nullptr
+      && arg1_plain != nullptr && out0_cipher != nullptr) {
+          runtime::he::kernel::convolution(
+              arg0_cipher->get_elements(), arg1_plain->get_elements(),
+              out0_cipher->get_elements(), arg0_cipher->get_shape(),
+              arg1_plain->get_shape(), out0_cipher->get_shape(),
+              c->get_window_movement_strides(),
+      c->get_window_dilation_strides(), c->get_padding_below(),
+      c->get_padding_above(), c->get_data_dilation_strides(), 0, 1, 1, 0, 0, 1,
+      false, element_type, batch_size, this); } else if (arg0_plain != nullptr
+      && arg1_cipher != nullptr && out0_cipher != nullptr) {
+          runtime::he::kernel::convolution(
+              arg0_plain->get_elements(), arg1_cipher->get_elements(),
+              out0_cipher->get_elements(), arg0_plain->get_shape(),
+              arg1_cipher->get_shape(), out0_cipher->get_shape(),
+              c->get_window_movement_strides(),
+      c->get_window_dilation_strides(), c->get_padding_below(),
+      c->get_padding_above(), c->get_data_dilation_strides(), 0, 1, 1, 0, 0, 1,
+      false, element_type, batch_size, this); } else if (arg0_plain != nullptr
+      && arg1_plain != nullptr && out0_plain != nullptr) {
+          runtime::he::kernel::convolution(
+              arg0_plain->get_elements(), arg1_plain->get_elements(),
+              out0_plain->get_elements(), arg0_plain->get_shape(),
+              arg1_plain->get_shape(), out0_plain->get_shape(),
+              c->get_window_movement_strides(),
+      c->get_window_dilation_strides(), c->get_padding_below(),
+      c->get_padding_above(), c->get_data_dilation_strides(), 0, 1, 1, 0, 0, 1,
+      false, element_type, batch_size, this); } else { throw
+      ngraph_error("Convolution types not supported.");
+        }
+      } else if (node_op == "Dot") {
+        shared_ptr<op::Dot> dot = dynamic_pointer_cast<op::Dot>(node);
+        NGRAPH_INFO << join(args[0]->get_shape(), "x") << " dot "
+                    << join(args[1]->get_shape(), "x");
+        if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
+            out0_cipher != nullptr) {
+          NGRAPH_INFO << "Dot cipher cipher => cipher";
+          runtime::he::kernel::dot(
+              arg0_cipher->get_elements(), arg1_cipher->get_elements(),
+              out0_cipher->get_elements(), arg0_cipher->get_shape(),
+              arg1_cipher->get_shape(), out0_cipher->get_shape(),
+              dot->get_reduction_axes_count(), element_type, this);
+        } else if (arg0_cipher != nullptr && arg1_plain != nullptr &&
+                   out0_cipher != nullptr) {
+          NGRAPH_INFO << "Dot cipher plain => cipher";
+          runtime::he::kernel::dot(
+              arg0_cipher->get_elements(), arg1_plain->get_elements(),
+              out0_cipher->get_elements(), arg0_cipher->get_shape(),
+              arg1_plain->get_shape(), out0_cipher->get_shape(),
+              dot->get_reduction_axes_count(), element_type, this);
+        } else if (arg0_plain != nullptr && arg1_cipher != nullptr &&
+                   out0_cipher != nullptr) {
+          NGRAPH_INFO << "Dot plain cipher => cipher";
+          runtime::he::kernel::dot(
+              arg0_plain->get_elements(), arg1_cipher->get_elements(),
+              out0_cipher->get_elements(), arg0_plain->get_shape(),
+              arg1_cipher->get_shape(), out0_cipher->get_shape(),
+              dot->get_reduction_axes_count(), element_type, this);
+        } else if (arg0_plain != nullptr && arg1_plain != nullptr &&
+                   out0_plain != nullptr) {
+          NGRAPH_INFO << "Dot plain plain => plain";
+          runtime::he::kernel::dot(
+              arg0_plain->get_elements(), arg1_plain->get_elements(),
+              out0_plain->get_elements(), arg0_plain->get_shape(),
+              arg1_plain->get_shape(), out0_plain->get_shape(),
+              dot->get_reduction_axes_count(), element_type, this);
+        } else {
+          throw ngraph_error("Dot types not supported.");
+        }
+      } else if (node_op == "Multiply") {
+        if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
+            out0_cipher != nullptr) {
+          runtime::he::kernel::multiply(
+              arg0_cipher->get_elements(), arg1_cipher->get_elements(),
+              out0_cipher->get_elements(), element_type, this,
+              out0_cipher->get_batched_element_count());
+        } else if (arg0_cipher != nullptr && arg1_plain != nullptr &&
+                   out0_cipher != nullptr) {
+          runtime::he::kernel::multiply(
+              arg0_cipher->get_elements(), arg1_plain->get_elements(),
+              out0_cipher->get_elements(), element_type, this,
+              out0_cipher->get_batched_element_count());
+        } else if (arg0_plain != nullptr && arg1_cipher != nullptr &&
+                   out0_cipher != nullptr) {
+          runtime::he::kernel::multiply(
+              arg0_plain->get_elements(), arg1_cipher->get_elements(),
+              out0_cipher->get_elements(), element_type, this,
+              out0_cipher->get_batched_element_count());
+        } else if (arg0_plain != nullptr && arg1_plain != nullptr &&
+                   out0_plain != nullptr) {
+          runtime::he::kernel::multiply(
+              arg0_plain->get_elements(), arg1_plain->get_elements(),
+              out0_plain->get_elements(), element_type, this,
+              out0_plain->get_batched_element_count());
+        } else {
+          throw ngraph_error("Multiply types not supported.");
+        }
+      } else if (node_op == "Negative") {
+        if (arg0_cipher != nullptr && out0_cipher != nullptr) {
+          runtime::he::kernel::negate(
+              arg0_cipher->get_elements(), out0_cipher->get_elements(),
+              element_type, this, out0_cipher->get_batched_element_count());
+        } else if (arg0_plain != nullptr && out0_plain != nullptr) {
+          runtime::he::kernel::negate(
+              arg0_plain->get_elements(), out0_plain->get_elements(),
+      element_type, this, out0_plain->get_batched_element_count()); } else {
+          throw ngraph_error("Negative types not supported.");
+        }
+      } else if (node_op == "Pad") {
+        shared_ptr<op::Pad> pad = dynamic_pointer_cast<op::Pad>(node);
 
-      NGRAPH_DEBUG << "out0_cipher->is_batched(): "
-                   << out0_cipher->is_batched();
-      NGRAPH_DEBUG << "arg0_cipher->get_batch_size(): "
-                   << out0_cipher->get_batch_size();
-      if (out0_cipher->is_batched()) {
-        out_shape[0] = out_shape[0] / out0_cipher->get_batch_size();
-      }
-    }
+        // TODO: clean up
+        Shape arg0_shape = node->get_inputs().at(0).get_shape();
+        Shape out_shape = node->get_output_shape(0);
+        if (arg0_cipher != nullptr && out0_cipher != nullptr) {
+          NGRAPH_DEBUG << "arg0_cipher->is_batched(): "
+                       << arg0_cipher->is_batched();
+          NGRAPH_DEBUG << "arg0_cipher->get_batch_size(): "
+                       << arg0_cipher->get_batch_size();
+          if (arg0_cipher->is_batched()) {
+            arg0_shape[0] = arg0_shape[0] / arg0_cipher->get_batch_size();
+          }
 
-    NGRAPH_DEBUG << "arg0_shape after batching: " << join(arg0_shape);
-    NGRAPH_DEBUG << "out_shape after batching: " << join(out_shape);
+          NGRAPH_DEBUG << "out0_cipher->is_batched(): "
+                       << out0_cipher->is_batched();
+          NGRAPH_DEBUG << "arg0_cipher->get_batch_size(): "
+                       << out0_cipher->get_batch_size();
+          if (out0_cipher->is_batched()) {
+            out_shape[0] = out_shape[0] / out0_cipher->get_batch_size();
+          }
+        }
 
-    if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
-        out0_cipher != nullptr) {
-      runtime::he::kernel::pad(
-          arg0_cipher->get_elements(), arg1_cipher->get_elements(),
-          out0_cipher->get_elements(), arg0_shape, out_shape,
-          pad->get_padding_below(), pad->get_padding_above(),
-          pad->get_padding_interior(), batch_size, this);
-    } else if (arg0_cipher != nullptr && arg1_plain != nullptr &&
-               out0_cipher != nullptr) {
-      runtime::he::kernel::pad(
-          arg0_cipher->get_elements(), arg1_plain->get_elements(),
-          out0_cipher->get_elements(), arg0_shape, out_shape,
-          pad->get_padding_below(), pad->get_padding_above(),
-          pad->get_padding_interior(), batch_size, this);
-    } else {
-      throw ngraph_error("Pad cipher vs plain types not supported.");
-    }
-  } else if (node_op == "Reshape") {
-    shared_ptr<op::Reshape> reshape = dynamic_pointer_cast<op::Reshape>(node);
+        NGRAPH_DEBUG << "arg0_shape after batching: " << join(arg0_shape);
+        NGRAPH_DEBUG << "out_shape after batching: " << join(out_shape);
 
-    if (arg0_cipher != nullptr && out0_cipher != nullptr) {
-      runtime::he::kernel::reshape(
-          arg0_cipher->get_elements(), out0_cipher->get_elements(),
-          arg0_cipher->get_shape(), reshape->get_input_order(),
-          out0_cipher->get_shape());
-    } else if (arg0_plain != nullptr && out0_plain != nullptr) {
-      runtime::he::kernel::reshape(
-          arg0_plain->get_elements(), out0_plain->get_elements(),
-          arg0_plain->get_shape(), reshape->get_input_order(),
-          out0_plain->get_shape());
-    } else {
-      throw ngraph_error("Reshape types not supported.");
-    }
-  } else if (node_op == "Result") {
-    shared_ptr<op::Result> res = dynamic_pointer_cast<op::Result>(node);
+        if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
+            out0_cipher != nullptr) {
+          runtime::he::kernel::pad(
+              arg0_cipher->get_elements(), arg1_cipher->get_elements(),
+              out0_cipher->get_elements(), arg0_shape, out_shape,
+              pad->get_padding_below(), pad->get_padding_above(),
+              pad->get_padding_interior(), batch_size, this);
+        } else if (arg0_cipher != nullptr && arg1_plain != nullptr &&
+                   out0_cipher != nullptr) {
+          runtime::he::kernel::pad(
+              arg0_cipher->get_elements(), arg1_plain->get_elements(),
+              out0_cipher->get_elements(), arg0_shape, out_shape,
+              pad->get_padding_below(), pad->get_padding_above(),
+              pad->get_padding_interior(), batch_size, this);
+        } else {
+          throw ngraph_error("Pad cipher vs plain types not supported.");
+        }
+      } else if (node_op == "Reshape") {
+        shared_ptr<op::Reshape> reshape =
+      dynamic_pointer_cast<op::Reshape>(node);
 
-    if (arg0_cipher != nullptr && out0_cipher != nullptr) {
-      size_t output_size = arg0_cipher->get_batched_element_count();
-      runtime::he::kernel::result(arg0_cipher->get_elements(),
-                                  out0_cipher->get_elements(), output_size);
-    } else if (arg0_plain != nullptr && out0_cipher != nullptr) {
-      runtime::he::kernel::result(arg0_plain->get_elements(),
-                                  out0_cipher->get_elements(),
-                                  shape_size(res->get_shape()), this);
-    } else if (arg0_plain != nullptr && out0_plain != nullptr) {
-      runtime::he::kernel::result(arg0_plain->get_elements(),
-                                  out0_plain->get_elements(),
-                                  shape_size(res->get_shape()));
-    } else {
-      throw ngraph_error("Result types not supported.");
-    }
-  } else if (node_op == "Reverse") {
-    shared_ptr<op::Reverse> reverse = dynamic_pointer_cast<op::Reverse>(node);
+        if (arg0_cipher != nullptr && out0_cipher != nullptr) {
+          runtime::he::kernel::reshape(
+              arg0_cipher->get_elements(), out0_cipher->get_elements(),
+              arg0_cipher->get_shape(), reshape->get_input_order(),
+              out0_cipher->get_shape());
+        } else if (arg0_plain != nullptr && out0_plain != nullptr) {
+          runtime::he::kernel::reshape(
+              arg0_plain->get_elements(), out0_plain->get_elements(),
+              arg0_plain->get_shape(), reshape->get_input_order(),
+              out0_plain->get_shape());
+        } else {
+          throw ngraph_error("Reshape types not supported.");
+        }
+      } else if (node_op == "Result") {
+        shared_ptr<op::Result> res = dynamic_pointer_cast<op::Result>(node);
 
-    if (arg0_cipher != nullptr && out0_cipher != nullptr) {
-      NGRAPH_INFO << "Reverse cipher cipher";
-      runtime::he::kernel::reverse(
-          arg0_cipher->get_elements(), out0_cipher->get_elements(),
-          arg0_cipher->get_shape(), out0_cipher->get_shape(),
-          reverse->get_reversed_axes());
-    } else if (arg0_plain != nullptr && out0_plain != nullptr) {
-      NGRAPH_INFO << "Reverse plain plain";
-      runtime::he::kernel::reverse(
-          arg0_plain->get_elements(), out0_plain->get_elements(),
-          arg0_plain->get_shape(), out0_plain->get_shape(),
-          reverse->get_reversed_axes());
-    } else {
-      throw ngraph_error("Reverse types not supported.");
-    }
-  } else if (node_op == "Slice") {
-    shared_ptr<op::Slice> slice = dynamic_pointer_cast<op::Slice>(node);
-    if (arg0_cipher != nullptr && out0_cipher != nullptr) {
-      runtime::he::kernel::slice(
-          arg0_cipher->get_elements(), out0_cipher->get_elements(),
-          arg0_cipher->get_shape(), slice->get_lower_bounds(),
-          slice->get_upper_bounds(), slice->get_strides(),
-          out0_cipher->get_shape());
-    } else if (arg0_plain != nullptr && out0_plain != nullptr) {
-      runtime::he::kernel::slice(
-          arg0_plain->get_elements(), out0_plain->get_elements(),
-          arg0_plain->get_shape(), slice->get_lower_bounds(),
-          slice->get_upper_bounds(), slice->get_strides(),
-          out0_plain->get_shape());
-    } else {
-      throw ngraph_error("Slice types not supported.");
-    }
-  } else if (node_op == "Subtract") {
-    if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
-        out0_cipher != nullptr) {
-      runtime::he::kernel::subtract(
-          arg0_cipher->get_elements(), arg1_cipher->get_elements(),
-          out0_cipher->get_elements(), element_type, this,
-          out0_cipher->get_batched_element_count());
-    } else if (arg0_cipher != nullptr && arg1_plain != nullptr &&
-               out0_cipher != nullptr) {
-      runtime::he::kernel::subtract(
-          arg0_cipher->get_elements(), arg1_plain->get_elements(),
-          out0_cipher->get_elements(), element_type, this,
-          out0_cipher->get_batched_element_count());
-    } else if (arg0_plain != nullptr && arg1_cipher != nullptr &&
-               out0_cipher != nullptr) {
-      runtime::he::kernel::subtract(
-          arg0_plain->get_elements(), arg1_cipher->get_elements(),
-          out0_cipher->get_elements(), element_type, this,
-          out0_cipher->get_batched_element_count());
-    } else if (arg0_plain != nullptr && arg1_plain != nullptr &&
-               out0_plain != nullptr) {
-      runtime::he::kernel::subtract(
-          arg0_plain->get_elements(), arg1_plain->get_elements(),
-          out0_plain->get_elements(), element_type, this,
-          out0_plain->get_batched_element_count());
-    } else {
-      throw ngraph_error("Subtract types not supported.");
-    }
-  } else if (node_op == "Sum") {
-    shared_ptr<op::Sum> sum = dynamic_pointer_cast<op::Sum>(node);
-    if (arg0_cipher != nullptr && out0_cipher != nullptr) {
-      runtime::he::kernel::sum(
-          arg0_cipher->get_elements(), out0_cipher->get_elements(),
-          arg0_cipher->get_shape(), out0_cipher->get_shape(),
-          sum->get_reduction_axes(), element_type, this);
-    } else if (arg0_plain != nullptr && out0_plain != nullptr) {
-      runtime::he::kernel::sum(arg0_plain->get_elements(),
-                               out0_plain->get_elements(),
-                               arg0_plain->get_shape(), out0_plain->get_shape(),
-                               sum->get_reduction_axes(), element_type, this);
-    } else {
-      throw ngraph_error("Sum types not supported.");
-    }
-  } else {
+        if (arg0_cipher != nullptr && out0_cipher != nullptr) {
+          size_t output_size = arg0_cipher->get_batched_element_count();
+          runtime::he::kernel::result(arg0_cipher->get_elements(),
+                                      out0_cipher->get_elements(), output_size);
+        } else if (arg0_plain != nullptr && out0_cipher != nullptr) {
+          runtime::he::kernel::result(arg0_plain->get_elements(),
+                                      out0_cipher->get_elements(),
+                                      shape_size(res->get_shape()), this);
+        } else if (arg0_plain != nullptr && out0_plain != nullptr) {
+          runtime::he::kernel::result(arg0_plain->get_elements(),
+                                      out0_plain->get_elements(),
+                                      shape_size(res->get_shape()));
+        } else {
+          throw ngraph_error("Result types not supported.");
+        }
+      } else if (node_op == "Reverse") {
+        shared_ptr<op::Reverse> reverse =
+      dynamic_pointer_cast<op::Reverse>(node);
+
+        if (arg0_cipher != nullptr && out0_cipher != nullptr) {
+          NGRAPH_INFO << "Reverse cipher cipher";
+          runtime::he::kernel::reverse(
+              arg0_cipher->get_elements(), out0_cipher->get_elements(),
+              arg0_cipher->get_shape(), out0_cipher->get_shape(),
+              reverse->get_reversed_axes());
+        } else if (arg0_plain != nullptr && out0_plain != nullptr) {
+          NGRAPH_INFO << "Reverse plain plain";
+          runtime::he::kernel::reverse(
+              arg0_plain->get_elements(), out0_plain->get_elements(),
+              arg0_plain->get_shape(), out0_plain->get_shape(),
+              reverse->get_reversed_axes());
+        } else {
+          throw ngraph_error("Reverse types not supported.");
+        }
+      } else if (node_op == "Slice") {
+        shared_ptr<op::Slice> slice = dynamic_pointer_cast<op::Slice>(node);
+        if (arg0_cipher != nullptr && out0_cipher != nullptr) {
+          runtime::he::kernel::slice(
+              arg0_cipher->get_elements(), out0_cipher->get_elements(),
+              arg0_cipher->get_shape(), slice->get_lower_bounds(),
+              slice->get_upper_bounds(), slice->get_strides(),
+              out0_cipher->get_shape());
+        } else if (arg0_plain != nullptr && out0_plain != nullptr) {
+          runtime::he::kernel::slice(
+              arg0_plain->get_elements(), out0_plain->get_elements(),
+              arg0_plain->get_shape(), slice->get_lower_bounds(),
+              slice->get_upper_bounds(), slice->get_strides(),
+              out0_plain->get_shape());
+        } else {
+          throw ngraph_error("Slice types not supported.");
+        }
+      } else if (node_op == "Subtract") {
+        if (arg0_cipher != nullptr && arg1_cipher != nullptr &&
+            out0_cipher != nullptr) {
+          runtime::he::kernel::subtract(
+              arg0_cipher->get_elements(), arg1_cipher->get_elements(),
+              out0_cipher->get_elements(), element_type, this,
+              out0_cipher->get_batched_element_count());
+        } else if (arg0_cipher != nullptr && arg1_plain != nullptr &&
+                   out0_cipher != nullptr) {
+          runtime::he::kernel::subtract(
+              arg0_cipher->get_elements(), arg1_plain->get_elements(),
+              out0_cipher->get_elements(), element_type, this,
+              out0_cipher->get_batched_element_count());
+        } else if (arg0_plain != nullptr && arg1_cipher != nullptr &&
+                   out0_cipher != nullptr) {
+          runtime::he::kernel::subtract(
+              arg0_plain->get_elements(), arg1_cipher->get_elements(),
+              out0_cipher->get_elements(), element_type, this,
+              out0_cipher->get_batched_element_count());
+        } else if (arg0_plain != nullptr && arg1_plain != nullptr &&
+                   out0_plain != nullptr) {
+          runtime::he::kernel::subtract(
+              arg0_plain->get_elements(), arg1_plain->get_elements(),
+              out0_plain->get_elements(), element_type, this,
+              out0_plain->get_batched_element_count());
+        } else {
+          throw ngraph_error("Subtract types not supported.");
+        }
+      } else if (node_op == "Sum") {
+        shared_ptr<op::Sum> sum = dynamic_pointer_cast<op::Sum>(node);
+        if (arg0_cipher != nullptr && out0_cipher != nullptr) {
+          runtime::he::kernel::sum(
+              arg0_cipher->get_elements(), out0_cipher->get_elements(),
+              arg0_cipher->get_shape(), out0_cipher->get_shape(),
+              sum->get_reduction_axes(), element_type, this);
+        } else if (arg0_plain != nullptr && out0_plain != nullptr) {
+          runtime::he::kernel::sum(arg0_plain->get_elements(),
+                                   out0_plain->get_elements(),
+                                   arg0_plain->get_shape(),
+      out0_plain->get_shape(), sum->get_reduction_axes(), element_type, this);
+        } else {
+          throw ngraph_error("Sum types not supported.");
+        }
+      } */
+      else {
     NGRAPH_INFO << "Op type " << node_op << " unsupported";
     throw ngraph_error("Unsupported op type");
   }

@@ -154,10 +154,9 @@ class HEBackend : public runtime::Backend {
       const std::vector<std::shared_ptr<runtime::Tensor>>& outputs,
       const std::vector<std::shared_ptr<runtime::Tensor>>& inputs) override;
 
-  void validate_he_call(
-      std::shared_ptr<const Function> function,
-      const std::vector<std::shared_ptr<runtime::he::HETensor>>& outputs,
-      const std::vector<std::shared_ptr<runtime::he::HETensor>>& inputs);
+  void validate_he_call(std::shared_ptr<const Function> function,
+                        const std::vector<runtime::he::HETensor*>& outputs,
+                        const std::vector<runtime::he::HETensor*>& inputs);
 
   void clear_function_instance();
 
@@ -223,10 +222,10 @@ class HEBackend : public runtime::Backend {
   bool m_optimized_add{true};
   bool m_optimized_mult{true};
 
-  void generate_calls(
-      const element::Type& element_type, const std::shared_ptr<Node>& op,
-      const std::vector<std::shared_ptr<runtime::he::HETensor>>& outputs,
-      const std::vector<std::shared_ptr<runtime::he::HETensor>>& inputs);
+  void generate_calls(const element::Type& element_type,
+                      const std::shared_ptr<Node>& op,
+                      const std::vector<runtime::he::HETensor*>& outputs,
+                      const std::vector<runtime::he::HETensor*>& inputs);
 };
 }  // namespace he
 }  // namespace runtime

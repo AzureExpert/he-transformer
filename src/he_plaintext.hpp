@@ -16,10 +16,12 @@
 
 #pragma once
 
+#include "he_text.hpp"
+
 namespace ngraph {
 namespace runtime {
 namespace he {
-class HEPlaintext {
+class HEPlaintext : public HEText {
  public:
   HEPlaintext(){};
   virtual ~HEPlaintext(){};

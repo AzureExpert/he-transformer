@@ -16,16 +16,15 @@
 
 #pragma once
 
-#include "he_text.hpp"
-
 namespace ngraph {
 namespace runtime {
 namespace he {
-// class HECiphertext : public ngraph::runtime::he::HEText {
-class HECiphertext {  //}: public ngraph::runtime::he::HEText {
+class HEText {
  public:
-  HECiphertext(){};
-  virtual ~HECiphertext(){};
+  HEText(){};
+  // virtual ~HEText(){};
+
+  int x;
 };
 }  // namespace he
 }  // namespace runtime

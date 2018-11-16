@@ -18,6 +18,7 @@
 
 #include <memory>
 
+#include "he_text.hpp"
 #include "ngraph/runtime/tensor.hpp"
 #include "ngraph/type/element_type.hpp"
 
@@ -61,6 +62,8 @@ class HETensor : public runtime::Tensor {
 
   /// @brief Returns the number of elements in the un-expanded tensor
   size_t get_batched_element_count() const;
+
+  virtual std::vector<std::shared_ptr<runtime::he::HEText>>& get_elements() = 0;
 
  protected:
   void check_io_bounds(const void* p, size_t tensor_offset, size_t n) const;

@@ -30,7 +30,7 @@ namespace he {
 class HEBackend;
 class HEPlaintext;
 
-class HEPlainTensor : public HETensor {
+class HEPlainTensor : public ngraph::runtime::he::HETensor {
  public:
   HEPlainTensor(const element::Type& element_type, const Shape& shape,
                 const HEBackend* he_backend,
