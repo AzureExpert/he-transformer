@@ -37,7 +37,8 @@ class HETensor : public runtime::Tensor {
   /// @param p Pointer to source of data
   /// @param tensor_offset Offset into tensor storage to begin writing. Must be
   /// element-aligned.
-  /// @param n Number of bytes to write, must be integral number of elements.
+  /// @param n Number of bytes to write / m_batch_size, must be integral number
+  /// of elements.
   virtual void write(const void* p, size_t tensor_offset,
                      size_t n) override = 0;
 
@@ -45,7 +46,8 @@ class HETensor : public runtime::Tensor {
   /// @param p Pointer to destination for data
   /// @param tensor_offset Offset into tensor storage to begin reading. Must be
   /// element-aligned.
-  /// @param n Number of bytes to read, must be integral number of elements.
+  /// @param n Number of bytes to read / m_batch_size, must be integral number
+  /// of elements.
   virtual void read(void* p, size_t tensor_offset, size_t n) const override = 0;
 
   /// @brief Reduces shape along batch axis
@@ -62,11 +64,8 @@ class HETensor : public runtime::Tensor {
   /// @brief Returns the shape of the expanded (batched) tensor.
   const Shape& get_expanded_shape() const { return m_expanded_shape; };
 
-  /// @brief Returns number of elements in the expanded (unbatched) tensor.
-  size_t get_element_count() const;
-
-  /// @brief Returns the number of elements in the un-expanded (batched) tensor.
-  size_t get_batched_element_count() const;
+  /// @brief Returns the number of elements in the expanded (unbatched) tensor.
+  size_t get_expanded_element_count() const;
 
   inline size_t get_batch_size() noexcept { return m_batch_size; }
 

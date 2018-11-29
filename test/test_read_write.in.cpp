@@ -121,6 +121,7 @@ NGRAPH_TEST(${BACKEND_NAME}, cipher_tv_batch_write_read_2_3) {
   Shape shape{2, 3};
   auto a = he_backend->create_batched_cipher_tensor(element::f32, shape);
   copy_data(a, test::NDArray<float, 2>({{1, 2}, {3, 4}, {5, 6}}).get_vector());
+  NGRAPH_INFO << "Copeid data";
 
   EXPECT_TRUE(all_close(
       generalized_read_vector<float>(a),

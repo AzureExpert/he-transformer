@@ -60,6 +60,14 @@ bool all_close(const std::vector<std::complex<T>>& a,
 }
 
 template <typename T>
+void copy_he_data(std::shared_ptr<ngraph::runtime::Tensor> tv,
+                  const std::vector<T>& data) {
+  size_t data_size = data.size() * sizeof(T);
+  NGRAPH_INFO << "Copying data size " << data.size();
+  tv->write(data.data(), 0, data_size);
+}
+
+template <typename T>
 bool all_close(const std::vector<T>& a, const std::vector<T>& b,
                T atol = static_cast<T>(1e-3)) {
   bool close = true;
@@ -82,18 +90,14 @@ generate_plain_cipher_tensors(const std::vector<std::shared_ptr<Node>>& output,
 // Reads batched vector
 template <typename T>
 std::vector<T> generalized_read_vector(std::shared_ptr<runtime::Tensor> tv) {
-  if (element::from<T>() != tv->get_tensor_layout()->get_element_type()) {
+  if (ngraph::element::from<T>() !=
+      tv->get_tensor_layout()->get_element_type()) {
     throw std::invalid_argument("read_vector type must match Tensor type");
   }
-  if (auto hetv = std::dynamic_pointer_cast<runtime::he::HETensor>(tv)) {
-    size_t element_count = shape_size(hetv->get_expanded_shape());
-
-    NGRAPH_INFO << "Element count " << element_count;
-    size_t size = element_count * sizeof(T);
-    std::vector<T> rc(element_count);
-    hetv->read(rc.data(), 0, size);
-    return rc;
-  } else {
-    throw ngraph_error("Tensor is not HETensor in generalized read vector");
-  }
+  size_t element_count = ngraph::shape_size(tv->get_shape());
+  size_t size = element_count * sizeof(T);
+  NGRAPH_INFO << "Element count " << element_count;
+  std::vector<T> rc(element_count);
+  tv->read(rc.data(), 0, size);
+  return rc;
 }

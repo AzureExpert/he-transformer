@@ -39,15 +39,15 @@ void runtime::he::HEPlainTensor::write(const void* source, size_t tensor_offset,
                                        size_t n) {
   // Hack to fix Cryptonets with ngraph-tf
   // TODO: modify get_element_count() instead
-  const char* ng_batch_tensor_value = std::getenv("NGRAPH_BATCH_TF");
+  /* const char* ng_batch_tensor_value = std::getenv("NGRAPH_BATCH_TF");
   if (ng_batch_tensor_value != nullptr) {
     n *= m_batch_size;
-  }
-  check_io_bounds(source, tensor_offset, n / m_batch_size);
+  } */
+  check_io_bounds(source, tensor_offset, n);
   const element::Type& element_type = get_tensor_layout()->get_element_type();
   size_t type_byte_size = element_type.size();
   size_t dst_start_index = tensor_offset / type_byte_size;
-  size_t num_elements_to_write = n / (type_byte_size * m_batch_size);
+  size_t num_elements_to_write = n / type_byte_size;
 
   if (num_elements_to_write == 1) {
     const void* src_with_offset = (void*)((char*)source);
@@ -89,10 +89,11 @@ void runtime::he::HEPlainTensor::read(void* target, size_t tensor_offset,
                                       size_t n) const {
   // Hack to fix Cryptonets with ngraph-tf
   // TODO: modify get_element_count() instead
-  const char* ng_batch_tensor_value = std::getenv("NGRAPH_BATCH_TF");
+  /* const char* ng_batch_tensor_value = std::getenv("NGRAPH_BATCH_TF");
   if (ng_batch_tensor_value != nullptr) {
     n *= m_batch_size;
-  }
+  } */
+
   check_io_bounds(target, tensor_offset, n);
   const element::Type& element_type = get_tensor_layout()->get_element_type();
   size_t type_byte_size = element_type.size();
