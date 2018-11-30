@@ -14,9 +14,32 @@
 #  limitations under the License.
 # ==============================================================================
 
-import ngraph_config
+import ngraph_bridge
 import numpy as np
 import tensorflow as tf
+
+ngraph_bridge.enable()
+backend_cpu = 'CPU'
+backend_interpreter = 'INTERPRETER'
+
+found_cpu = False
+found_interpreter = False
+# These will only print when running pytest with flag "-s"
+print("Number of supported backends ", ngraph_bridge.backends_len())
+supported_backends = ngraph_bridge.list_backends()
+print(" ****** Supported Backends ****** ")
+for backend_name in supported_backends:
+    print(backend_name)
+    if backend_name == backend_cpu:
+        found_cpu = True
+    if backend_name == backend_interpreter:
+        found_interpreter = True
+print(" ******************************** ")
+assert (found_cpu and found_interpreter) == True
+
+print('get_currently_set_backend_name', ngraph_bridge.get_currently_set_backend_name())
+
+
 
 a = tf.constant(np.array([[1, 2], [3, 4]]), dtype=np.float32)
 b = tf.placeholder(tf.float32, shape=(2, 2))
