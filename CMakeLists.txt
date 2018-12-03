@@ -34,6 +34,21 @@ include(cmake/sdl.cmake)
 # Global project name
 project (he-transformer)
 
+SET(GCC_MIN_VERSION 6.0) # Needed by SEAL
+SET(CLANG_MIN_VERSION 5.0) # Needed by SEAL
+
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS GCC_MIN_VERSION)
+        message(FATAL_ERROR "GCC version must be at least ${GCC_MIN_VERSION}!")
+    endif()
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS CLANG_MIN_VERSION)
+        message(FATAL_ERROR "Clang version must be at least ${CLANG_MIN_VERSION}!")
+    endif()
+else()
+    message(WARNING "You are using an unsupported compiler.")
+endif()
+
 add_definitions(-DPROJECT_ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Installation paths when `make install`
