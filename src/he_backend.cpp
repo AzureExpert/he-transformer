@@ -22,6 +22,7 @@
 #include "he_tensor.hpp"
 #include "kernel/add.hpp"
 #include "kernel/avg_pool.hpp"
+#include "kernel/batch_norm.hpp"
 #include "kernel/broadcast.hpp"
 #include "kernel/concat.hpp"
 #include "kernel/constant.hpp"
@@ -39,6 +40,7 @@
 #include "ngraph/descriptor/layout/dense_tensor_layout.hpp"
 #include "ngraph/function.hpp"
 #include "ngraph/op/avg_pool.hpp"
+#include "ngraph/op/batch_norm.hpp"
 #include "ngraph/op/broadcast.hpp"
 #include "ngraph/op/concat.hpp"
 #include "ngraph/op/constant.hpp"
@@ -505,7 +507,16 @@ void runtime::he::HEBackend::generate_calls(
     } else {
       throw ngraph_error("Broadcast types not supported.");
     }
-  } else if (node_op == "Broadcast") {
+  } else if (node_op == "BatchNormInference") {
+    shared_ptr<op::BatchNormInference> bn =
+        dynamic_pointer_cast<op::BatchNormInference>(node);
+
+    runtime::he::kernel::batch_norm_inference(
+        bn->get_eps_value(), args[0], args[1], args[2], args[3], args[4],
+        out[0], node->get_input_shape(2));
+  }
+
+  else if (node_op == "Broadcast") {
     shared_ptr<op::Broadcast> broadcast =
         dynamic_pointer_cast<op::Broadcast>(node);
     AxisSet broadcast_axes = broadcast->get_broadcast_axes();
