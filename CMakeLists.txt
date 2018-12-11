@@ -49,8 +49,10 @@ set(NGRAPH_INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
 set(CMAKE_INSTALL_RPATH "\$ORIGIN")
 
 option(ENABLE_TF "Support Tensorflow integration through ngraph-tf" OFF)
+option(ENABLE_SSL "Support for secure communication to a server" ON)
 
 message("ENABLE_TF ${ENABLE_TF}")
+message("ENABLE_SSL ${ENABLE_SSL}")
 
 # Check python environment is active if TF is enabled
 if (ENABLE_TF)
@@ -79,6 +81,10 @@ endif()
 include(cmake/gtest.cmake)
 include(cmake/json.cmake)
 include(cmake/ngraph.cmake)
+
+if (ENABLE_SSL)
+    include(cmake/openssl.cmake)
+endif()
 
 if (ENABLE_TF)
     message("Building with Tensorflow integration through ngraph-tf")

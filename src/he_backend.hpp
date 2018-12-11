@@ -22,7 +22,10 @@
 #include <vector>
 
 #include "he_ciphertext.hpp"
+#include "he_evaluator.hpp"
 #include "he_plaintext.hpp"
+#include "he_public_key.hpp"
+#include "he_secret_key.hpp"
 #include "he_tensor.hpp"
 #include "ngraph/descriptor/layout/dense_tensor_layout.hpp"
 #include "ngraph/descriptor/layout/tensor_layout.hpp"
@@ -148,10 +151,9 @@ class HEBackend : public runtime::Backend {
 
   bool compile(std::shared_ptr<Function> function) override;
 
-  bool call(
-      std::shared_ptr<Function> function,
-      const std::vector<std::shared_ptr<runtime::Tensor>>& outputs,
-      const std::vector<std::shared_ptr<runtime::Tensor>>& inputs) override;
+  bool call(std::shared_ptr<Function> function,
+            const std::vector<std::shared_ptr<runtime::Tensor>>& outputs,
+            const std::vector<std::shared_ptr<runtime::Tensor>>& inputs) = 0;
 
   void validate_he_call(
       std::shared_ptr<const Function> function,
@@ -220,6 +222,10 @@ class HEBackend : public runtime::Backend {
     std::vector<std::shared_ptr<Node>> m_nodes;
   };
   std::map<std::shared_ptr<Function>, FunctionInstance> m_function_map;
+
+  std::shared_ptr<HESecretKey> m_secret_key;
+  std::shared_ptr<HESecretKey> m_public_key;
+  std::shared_ptr<HEEvaluator> m_evaluator;
 
   bool m_optimized_add{std::getenv("NGRAPH_OPTIMIZED_ADD") != nullptr};
   bool m_optimized_mult{std::getenv("NGRAPH_OPTIMIZED_MULT") != nullptr};

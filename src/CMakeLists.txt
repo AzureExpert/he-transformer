@@ -32,6 +32,8 @@ set (HE_SRC
     seal/kernel/subtract_seal.cpp
     seal/he_seal_backend.cpp
     seal/seal_plaintext_wrapper.cpp
+    seal/seal_secret_key_wrapper.cpp
+    seal/seal_public_key_wrapper.cpp
     seal/seal_ciphertext_wrapper.cpp
     seal/bfv/he_seal_bfv_backend.cpp
     seal/bfv/kernel/add_seal_bfv.cpp
@@ -45,6 +47,9 @@ set (HE_SRC
     he_cipher_tensor.cpp
     he_plain_tensor.cpp
     he_tensor.cpp
+
+    he_encrypted_backend.cpp
+    he_plaintext_backend.cpp
 )
 
 # Paths for the upstream ngraph
@@ -68,6 +73,10 @@ message("Linking directories: ${NGRAPH_LIB_DIR}, ${EXTERNAL_INSTALL_LIB_DIR}")
 add_library(he_backend SHARED ${HE_SRC})
 add_dependencies(he_backend ext_ngraph ext_seal)
 target_link_libraries(he_backend ngraph seal libjson)
+if (ENABLE_SSL)
+    message("SSL linking")
+    target_link_libraries(he_backend libopenssl)
+endif()
 
 set_target_properties(he_backend PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY

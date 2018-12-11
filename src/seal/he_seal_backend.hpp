@@ -19,7 +19,7 @@
 #include <memory>
 #include <unordered_map>
 
-#include "he_backend.hpp"
+#include "he_backend_client.hpp"
 #include "seal/he_seal_parameter.hpp"
 #include "seal/seal.h"
 
@@ -27,7 +27,7 @@ namespace ngraph {
 namespace runtime {
 namespace he {
 namespace he_seal {
-class HESealBackend : public HEBackend {
+class HESealBackendClient : public HEBackendClient {
  public:
   /// @brief Constructs SEAL context from SEAL parameter
   /// @param sp SEAL Parameter from which to construct context
@@ -95,11 +95,6 @@ class HESealBackend : public HEBackend {
     return m_context;
   }
 
-  const inline std::shared_ptr<seal::SecretKey> get_secret_key() const
-      noexcept {
-    return m_secret_key;
-  }
-
   const inline std::shared_ptr<seal::RelinKeys> get_relin_keys() const
       noexcept {
     return m_relin_keys;
@@ -113,14 +108,11 @@ class HESealBackend : public HEBackend {
       double value) const;
 
  protected:
-  std::shared_ptr<seal::SecretKey> m_secret_key;
   std::shared_ptr<seal::PublicKey> m_public_key;
   std::shared_ptr<seal::RelinKeys> m_relin_keys;
   std::shared_ptr<seal::Encryptor> m_encryptor;
-  std::shared_ptr<seal::Decryptor> m_decryptor;
   std::shared_ptr<seal::SEALContext> m_context;
   std::shared_ptr<seal::Evaluator> m_evaluator;
-  std::shared_ptr<seal::KeyGenerator> m_keygen;
 
   std::unordered_map<double, std::shared_ptr<runtime::he::HEPlaintext>>
       m_plaintext_map;

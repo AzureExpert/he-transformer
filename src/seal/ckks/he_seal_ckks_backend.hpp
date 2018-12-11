@@ -32,13 +32,13 @@ namespace ngraph {
 namespace runtime {
 namespace he {
 namespace he_seal {
-class HESealCKKSBackend : public HESealBackend {
+class HESealCKKSBackendClient : public HESealBackendClient {
  public:
-  HESealCKKSBackend();
-  HESealCKKSBackend(
+  HESealCKKSBackendClient();
+  HESealCKKSBackendClient(
       const std::shared_ptr<runtime::he::he_seal::HESealParameter>& sp);
-  HESealCKKSBackend(HESealCKKSBackend& he_backend) = default;
-  ~HESealCKKSBackend(){};
+  HESealCKKSBackendClient(HESealCKKSBackendClient& he_backend) = default;
+  ~HESealCKKSBackendClient(){};
 
   std::shared_ptr<runtime::Tensor> create_batched_cipher_tensor(
       const element::Type& element_type, const Shape& shape) override;
