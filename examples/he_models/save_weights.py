@@ -18,11 +18,6 @@ import os
 
 from train import get_run_dir
 
-FLAGS = None
-
-import models.data as data
-import models.select as select
-
 FLAGS = tf.app.flags.FLAGS
 
 def save_weights():
@@ -36,7 +31,7 @@ def save_weights():
     print('data dir', FLAGS.data_dir)
     images, labels = data.train_inputs(data_dir=FLAGS.data_dir)
 
-    model = select.by_name(FLAGS.model, training=True)
+    model = select.by_name(FLAGS.model)
 
     print('FLAGS.model', FLAGS.model)
 

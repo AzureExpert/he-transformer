@@ -62,11 +62,11 @@ def train_ops():
     images, labels = data.train_inputs(data_dir=data_dir)
 
     # Instantiate the model
-    model = select.by_name(FLAGS.model, training=True)
+    model = select.by_name(FLAGS.model) #, training=True)
 
     # Create a 'virtual' graph node based on images that represents the input
     # node to be used for graph retrieval
-    inputs = tf.identity(images, 'inputs')
+    inputs = tf.identity(images, 'XXX')
 
     # Build a Graph that computes the logits predictions from the
     # inference model
@@ -74,9 +74,8 @@ def train_ops():
     print('Multiplicative depth', model.mult_depth())
     print('FLOPS:', model.get_flops())
 
-
     # In the same way, create a 'virtual' node for outputs
-    outputs = tf.identity(logits, 'predictions')
+    outputs = tf.identity(logits, 'YYY')
 
     # Calculate loss
     loss = model.loss(logits, labels)
